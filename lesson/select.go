@@ -16,7 +16,9 @@ package lesson
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -136,8 +138,55 @@ func (s *Selector[T]) From(tbl string) *Selector[T] {
 }
 
 func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
-	// TODO implement me
-	panic("implement me")
+	q, err := s.Build()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.db.QueryContext(ctx, q.SQL, q.Args...)
+	if err != nil {
+		return nil, err
+	}
+	if !rows.Next() {
+		return nil, errors.New("toy-orm: 未找到数据")
+	}
+
+	tp := new(T)
+	meta, err := s.db.r.get(tp)
+	if err != nil {
+		return nil, err
+	}
+	cs, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	if len(cs) > len(meta.fieldMap) {
+		return nil, errors.New("toy-orm: 列过多")
+	}
+
+	// TODO 性能优化
+	// colValues 和 colEleValues 实质上最终都指向同一个对象
+	colValues := make([]interface{}, len(cs))
+	colEleValues := make([]reflect.Value, len(cs))
+	for i, c := range cs {
+		cm, ok := meta.columnMap[c]
+		if !ok {
+			return nil, fmt.Errorf("toy-orm: 非法列名 %s", c)
+		}
+		val := reflect.New(cm.typ)
+		colValues[i] = val.Interface()
+		colEleValues[i] = val.Elem()
+	}
+	if err = rows.Scan(colValues...); err != nil {
+		return nil, err
+	}
+
+	val := reflect.ValueOf(tp).Elem()
+	for i, c := range cs {
+		cm := meta.columnMap[c]
+		fd := val.FieldByName(cm.fieldName)
+		fd.Set(colEleValues[i])
+	}
+	return tp, nil
 }
 
 func (s *Selector[T]) GetMulti(ctx context.Context) ([]*T, error) {

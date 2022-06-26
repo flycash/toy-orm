@@ -16,28 +16,21 @@ package lesson
 
 import "database/sql"
 
-type DBOption func(*DB)
-
-type DB struct {
-	db *sql.DB
-	r  *registry
+type Result struct {
+	err error
+	res sql.Result
 }
 
-func NewDB(driver string, dsn string, opts ...DBOption) (*DB, error) {
-	db, err := sql.Open(driver, dsn)
-	if err != nil {
-		return nil, err
+func (r Result) LastInsertId() (int64, error) {
+	if r.err != nil {
+		return 0, r.err
 	}
-	return newDB(db, opts...)
+	return r.res.LastInsertId()
 }
 
-func newDB(db *sql.DB, opts ...DBOption) (*DB, error) {
-	res := &DB{
-		db: db,
-		r:  &registry{},
+func (r Result) RowsAffected() (int64, error) {
+	if r.err != nil {
+		return 0, r.err
 	}
-	for _, o := range opts {
-		o(res)
-	}
-	return res, nil
+	return r.res.RowsAffected()
 }

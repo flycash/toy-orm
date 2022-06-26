@@ -23,11 +23,15 @@ import (
 
 type ModelInfo struct {
 	tableName string
+	fields    []string
 	fieldMap  map[string]*FieldInfo
+	columnMap map[string]*FieldInfo
 }
 
 type FieldInfo struct {
 	columnName string
+	fieldName  string
+	typ        reflect.Type
 }
 
 type registry struct {
@@ -44,17 +48,27 @@ func (r *registry) register(val any) (*ModelInfo, error) {
 
 	numField := typ.NumField()
 	fdInfos := make(map[string]*FieldInfo, numField)
+	fds := make([]string, numField)
+	cm := make(map[string]*FieldInfo, numField)
 	for i := 0; i < numField; i++ {
 		fd := typ.Field(i)
-		cn := fd.Name
-		fdInfos[cn] = &FieldInfo{
-			columnName: underscoreName(cn),
+		fn := fd.Name
+		cn := underscoreName(fn)
+		fi := &FieldInfo{
+			columnName: cn,
+			fieldName:  fn,
+			typ:        fd.Type,
 		}
+		fdInfos[fn] = fi
+		cm[cn] = fi
+		fds[i] = fn
 	}
 
 	mi := &ModelInfo{
 		tableName: underscoreName(typ.Name()),
+		fields:    fds,
 		fieldMap:  fdInfos,
+		columnMap: cm,
 	}
 	r.models.Store(reflect.TypeOf(val), mi)
 	return mi, nil

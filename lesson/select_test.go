@@ -15,13 +15,16 @@
 package lesson
 
 import (
+	"context"
+	"database/sql"
 	"errors"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestSelector_Build(t *testing.T) {
-	db, err := NewDB()
+	db, err := NewDB("mysql", "")
 	if err != nil {
 		t.Fatal(db)
 	}
@@ -114,6 +117,86 @@ func TestSelector_Build(t *testing.T) {
 			}
 			assert.Equal(t, tc.wantSQL, q.SQL)
 			assert.Equal(t, tc.wantArgs, q.Args)
+		})
+	}
+}
+
+func TestSelector_Get(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = mockDB.Close() }()
+	db, err := newDB(mockDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testCases := []struct {
+		name     string
+		query    string
+		mockErr  error
+		mockRows *sqlmock.Rows
+		wantErr  error
+		wantVal  *TestModel
+	}{
+		{
+			// 查询返回错误
+			name:    "query error",
+			mockErr: errors.New("invalid query"),
+			wantErr: errors.New("invalid query"),
+			query:   "SELECT .*",
+		},
+		{
+			name:     "no row",
+			wantErr:  errors.New("toy-orm: 未找到数据"),
+			query:    "SELECT .*",
+			mockRows: sqlmock.NewRows([]string{"id"}),
+		},
+		{
+			name:    "too many column",
+			wantErr: errors.New("toy-orm: 列过多"),
+			query:   "SELECT .*",
+			mockRows: func() *sqlmock.Rows {
+				res := sqlmock.NewRows([]string{"id", "first_name", "age", "last_name", "extra_column"})
+				res.AddRow([]byte("1"), []byte("Da"), []byte("18"), []byte("Ming"), []byte("nothing"))
+				return res
+			}(),
+		},
+		{
+			name:  "get data",
+			query: "SELECT .*",
+			mockRows: func() *sqlmock.Rows {
+				res := sqlmock.NewRows([]string{"id", "first_name", "age", "last_name"})
+				res.AddRow([]byte("1"), []byte("Da"), []byte("18"), []byte("Ming"))
+				return res
+			}(),
+			wantVal: &TestModel{
+				Id:        1,
+				FirstName: "Da",
+				Age:       18,
+				LastName:  &sql.NullString{String: "Ming", Valid: true},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		exp := mock.ExpectQuery(tc.query)
+		if tc.mockErr != nil {
+			exp.WillReturnError(tc.mockErr)
+		} else {
+			exp.WillReturnRows(tc.mockRows)
+		}
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := NewSelector[TestModel](db).Get(context.Background())
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tc.wantVal, res)
 		})
 	}
 }
