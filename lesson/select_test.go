@@ -24,9 +24,14 @@ import (
 )
 
 func TestSelector_Build(t *testing.T) {
-	db, err := NewDB("mysql", "")
+	mockDB, _, err := sqlmock.New()
 	if err != nil {
-		t.Fatal(db)
+		t.Fatal(err)
+	}
+	defer func() { _ = mockDB.Close() }()
+	db, err := newDB(mockDB)
+	if err != nil {
+		t.Fatal(err)
 	}
 	testCases := []struct {
 		name     string

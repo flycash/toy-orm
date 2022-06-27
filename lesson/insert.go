@@ -23,7 +23,7 @@ import (
 )
 
 type Inserter[T any] struct {
-	db     *DB
+	sess   Session
 	values []*T
 }
 
@@ -31,7 +31,7 @@ func (i *Inserter[T]) Build() (*Query, error) {
 	if len(i.values) == 0 {
 		return &Query{}, errors.New("toy-orm: 插入0行")
 	}
-	meta, err := i.db.r.get(i.values[0])
+	meta, err := i.sess.registry().get(i.values[0])
 	if err != nil {
 		return nil, err
 	}
@@ -78,15 +78,15 @@ func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
 			err: err,
 		}
 	}
-	res, err := i.db.db.ExecContext(ctx, q.SQL, q.Args...)
+	res, err := i.sess.exec(ctx, q.SQL, q.Args...)
 	return Result{
 		err: err,
 		res: res,
 	}
 }
 
-func NewInserter[T any](db *DB) *Inserter[T] {
-	return &Inserter[T]{db: db}
+func NewInserter[T any](sess Session) *Inserter[T] {
+	return &Inserter[T]{sess: sess}
 }
 
 func (i *Inserter[T]) Values(vals ...*T) *Inserter[T] {

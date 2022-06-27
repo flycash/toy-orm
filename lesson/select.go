@@ -23,7 +23,7 @@ import (
 )
 
 type Selector[T any] struct {
-	db   *DB
+	sess Session
 	sb   strings.Builder
 	args []any
 	mi   *ModelInfo
@@ -32,9 +32,9 @@ type Selector[T any] struct {
 	where []Predicate
 }
 
-func NewSelector[T any](db *DB) *Selector[T] {
+func NewSelector[T any](sess Session) *Selector[T] {
 	return &Selector[T]{
-		db: db,
+		sess: sess,
 	}
 }
 
@@ -48,7 +48,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 		t   T
 		err error
 	)
-	s.mi, err = s.db.r.get(&t)
+	s.mi, err = s.sess.registry().get(&t)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.db.db.QueryContext(ctx, q.SQL, q.Args...)
+	rows, err := s.sess.query(ctx, q.SQL, q.Args...)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 	}
 
 	tp := new(T)
-	meta, err := s.db.r.get(tp)
+	meta, err := s.sess.registry().get(tp)
 	if err != nil {
 		return nil, err
 	}

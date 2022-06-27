@@ -66,18 +66,22 @@ func Test_registry_register(t *testing.T) {
 				columnMap: map[string]*FieldInfo{
 					"id": {
 						columnName: "id",
+						fieldName:  "Id",
 						typ:        reflect.TypeOf(int64(0)),
 					},
 					"first_name": {
 						columnName: "first_name",
+						fieldName:  "FirstName",
 						typ:        reflect.TypeOf(""),
 					},
 					"age": {
 						columnName: "age",
+						fieldName:  "Age",
 						typ:        reflect.TypeOf(int8(0)),
 					},
 					"last_name": {
 						columnName: "last_name",
+						fieldName:  "LastName",
 						typ:        reflect.TypeOf(&sql.NullString{}),
 					},
 				},

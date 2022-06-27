@@ -17,6 +17,7 @@ package lesson
 import (
 	"context"
 	"database/sql"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"testing"

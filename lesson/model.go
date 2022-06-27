@@ -41,7 +41,7 @@ type registry struct {
 func (r *registry) register(val any) (*ModelInfo, error) {
 	// 这里我们假设必然使用结构体指针
 	typ := reflect.TypeOf(val)
-	if typ.Kind() != reflect.Ptr && typ.Elem().Kind() != reflect.Struct {
+	if typ.Kind() != reflect.Ptr || typ.Elem().Kind() != reflect.Struct {
 		return nil, errors.New("toy-orm: 非法类型")
 	}
 	typ = typ.Elem()
